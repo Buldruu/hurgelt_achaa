@@ -148,3 +148,9 @@ export function listenDriverHelpRequests(driverId, cb) {
   const q = query(collection(db, 'helpRequests'), where('driverId', '==', driverId), orderBy('createdAt', 'desc'), limit(10));
   return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 }
+
+export async function hasAgreed(userId) {
+  const q = query(collection(db, 'agreements'), where('userId', '==', userId), limit(1));
+  const snap = await getDocs(q);
+  return !snap.empty;
+}

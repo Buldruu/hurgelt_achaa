@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useEffect, useState } from 'react';
 import { onAuth } from './firebase/auth';
-import { getDriverProfile } from './firebase/db';
+import { getDriverProfile, hasAgreed } from './firebase/db';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useStore from './store/useStore';
@@ -31,9 +31,13 @@ export default function App() {
             if (dp) setDriverProfile(dp);
           }
         }
+        // Өмнө нь гэрээ зөвшөөрсөн эсэхийг шалгана — зөвшөөрсөн бол дахин харуулахгүй
+        const alreadyAgreed = await hasAgreed(firebaseUser.uid);
+        if (alreadyAgreed) setAgreed(true);
       } else {
         setUser(null);
         setUserProfile(null);
+        setAgreed(false);
       }
       setAuthLoading(false);
     });
