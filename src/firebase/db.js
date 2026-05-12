@@ -122,3 +122,29 @@ export function listenAllUsers(cb) {
   const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
   return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 }
+
+// ─── SHOP ────────────────────────────────────────────────────────────────────
+
+export async function createShopOrder(data) {
+  return addDoc(collection(db, 'shopOrders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
+}
+
+export function listenDriverShopOrders(driverId, cb) {
+  const q = query(collection(db, 'shopOrders'), where('driverId', '==', driverId), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+}
+
+export async function updateShopOrderStatus(orderId, status) {
+  return updateDoc(doc(db, 'shopOrders', orderId), { status, updatedAt: serverTimestamp() });
+}
+
+// ─── HELP REQUESTS ───────────────────────────────────────────────────────────
+
+export async function createHelpRequest(data) {
+  return addDoc(collection(db, 'helpRequests'), { ...data, status: 'open', createdAt: serverTimestamp() });
+}
+
+export function listenDriverHelpRequests(driverId, cb) {
+  const q = query(collection(db, 'helpRequests'), where('driverId', '==', driverId), orderBy('createdAt', 'desc'), limit(10));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+}
