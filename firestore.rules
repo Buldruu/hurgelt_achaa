@@ -1,0 +1,49 @@
+// firestore.rules
+// Firebase Console → Firestore → Rules хэсэгт хуулж тавина уу
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: зөвхөн өөрийн мэдээллийг уншиж, өөрчилж болно
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null; // жолооч захиалагчийн нэрийг харах
+    }
+
+    // Drivers: жолоочийн профайл
+    match /drivers/{driverId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == driverId;
+      // Зөвхөн Admin статус өөрчлөх эрхтэй (Admin SDK ашиглана)
+    }
+
+    // Orders: захиалагч үүсгэнэ, жолооч харж, авна
+    match /orders/{orderId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid
+      );
+    }
+
+    // Ratings: нэвтэрсэн хэрэглэгч бичнэ
+    match /ratings/{ratingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    // Agreements: хэрэглэгч өөрийнхийг бичнэ
+    match /agreements/{agreementId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+    }
+
+    // Config: зөвхөн унших (бичих нь Admin SDK-р)
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin SDK only
+    }
+  }
+}
