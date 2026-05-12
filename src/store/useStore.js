@@ -1,7 +1,7 @@
 // src/store/useStore.js
 import { create } from 'zustand';
 
-const useStore = create((set, get) => ({
+const useStore = create((set) => ({
   // ── Auth ──────────────────────────────────────────────────
   user: null,          // Firebase Auth user
   userProfile: null,   // Firestore user doc

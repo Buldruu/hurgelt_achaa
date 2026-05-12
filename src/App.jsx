@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { onAuth } from './firebase/auth';
 import { getDriverProfile } from './firebase/db';
 import { doc, getDoc } from 'firebase/firestore';
@@ -38,7 +38,7 @@ export default function App() {
       setAuthLoading(false);
     });
     return unsub;
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (authLoading) {
     return (

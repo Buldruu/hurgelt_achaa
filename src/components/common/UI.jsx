@@ -1,5 +1,5 @@
 // src/components/common/UI.jsx
-import React from 'react';
+/* eslint-disable react-refresh/only-export-components */
 
 export const C = {
   green: '#1D9E75', greenDark: '#0F6E56', greenLight: '#ECFDF5',

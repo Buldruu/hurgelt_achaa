@@ -1,17 +1,13 @@
 // src/pages/customer/CustomerApp.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import { createOrder, listenCustomerOrders, listenDriverLocation, submitRating } from '../../firebase/db';
-import { Card, CardTitle, Btn, InfoRow, Badge, FormInput, FormSelect, StarRating, Alert, BottomNav, TopBar, PageShell, StatusTimeline, Spinner } from '../../components/common/UI';
+import { Card, CardTitle, Btn, InfoRow, Badge, FormInput, FormSelect, StarRating, Alert, BottomNav, TopBar, PageShell, StatusTimeline } from '../../components/common/UI';
 import DeliveryMap from '../../components/map/DeliveryMap';
 import { VEHICLE_MULTIPLIERS, calcPrice, calcDistance, formatPrice, getStatusLabel } from '../../utils/pricing';
-import { serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { logout } from '../../firebase/auth';
 
-const VEHICLE_OPTIONS = Object.entries(VEHICLE_MULTIPLIERS).map(([k, v]) => ({
-  value: k, label: v.label,
-}));
 
 const ITEM_TYPES = [
   { value: 'furniture',     label: 'Тавилга' },
@@ -52,7 +48,6 @@ export default function CustomerApp() {
   const [submitting, setSubmitting]     = useState(false);
 
   // Tracking
-  const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [trackingOrder, setTrackingOrder]     = useState(null);
   const [driverPos, setDriverPos]             = useState(null);
 
@@ -73,10 +68,10 @@ export default function CustomerApp() {
       const active = orders.find((o) =>
         !['completed', 'cancelled'].includes(o.status)
       );
-      if (active) { setTrackingOrderId(active.id); setTrackingOrder(active); }
+      if (active) { setTrackingOrder(active); }
     });
     return unsub;
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen to driver location for active order
   useEffect(() => {

@@ -1,7 +1,7 @@
 // src/pages/admin/AdminPanel.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listenAllOrders, listenAllDrivers, updateDriverStatus, updateOrderStatus, savePricingConfig, getPricingConfig } from '../../firebase/db';
-import { Card, CardTitle, Btn, InfoRow, Badge, FormInput, Alert } from '../../components/common/UI';
+import { Card, CardTitle, Btn, InfoRow, Badge, Alert } from '../../components/common/UI';
 import DeliveryMap from '../../components/map/DeliveryMap';
 import { formatPrice, getStatusLabel, DEFAULT_PRICING } from '../../utils/pricing';
 import toast from 'react-hot-toast';

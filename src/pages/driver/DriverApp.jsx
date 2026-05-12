@@ -1,9 +1,9 @@
 // src/pages/driver/DriverApp.jsx
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import {
   listenAvailableOrders, listenDriverOrders, updateOrderStatus,
-  updateDriverLocation, createDriverProfile, uploadFile, submitRating,
+  updateDriverLocation, createDriverProfile, uploadFile,
 } from '../../firebase/db';
 import { Card, CardTitle, Btn, InfoRow, Badge, FormInput, FormSelect, Alert, BottomNav, TopBar, PageShell, StatusTimeline } from '../../components/common/UI';
 import DeliveryMap from '../../components/map/DeliveryMap';
@@ -11,10 +11,6 @@ import { VEHICLE_MULTIPLIERS, formatPrice, getStatusLabel } from '../../utils/pr
 import toast from 'react-hot-toast';
 import { logout } from '../../firebase/auth';
 
-const DRIVER_STATUSES = [
-  'accepted', 'going_pickup', 'arrived_pickup',
-  'picked_up', 'going_dropoff', 'arrived_dropoff', 'completed',
-];
 
 const NEXT_STATUS = {
   accepted:        { key: 'going_pickup',    label: '🚗 Авах байршил руу хөдлөх' },
@@ -46,7 +42,7 @@ export default function DriverApp() {
 
   // Listen available orders for driver's vehicle type
   useEffect(() => {
-    if (!driverProfile?.status === 'approved') return;
+    if (driverProfile?.status !== 'approved') return;
     const vType = driverProfile?.vehicleType || 'pickup';
     const unsub = listenAvailableOrders(vType, setAvailableOrders);
     return unsub;
@@ -66,13 +62,14 @@ export default function DriverApp() {
   // GPS tracking while active delivery
   useEffect(() => {
     if (!activeOrder || !trackingActive) return;
+    const uid = user?.uid;
     const id = navigator.geolocation.watchPosition(
-      (pos) => updateDriverLocation(user.uid, pos.coords.latitude, pos.coords.longitude),
+      (pos) => updateDriverLocation(uid, pos.coords.latitude, pos.coords.longitude),
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, [activeOrder, trackingActive]);
+  }, [activeOrder, trackingActive, user?.uid]);
 
   async function acceptOrder(order) {
     try {

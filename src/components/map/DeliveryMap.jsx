@@ -1,5 +1,5 @@
 // src/components/map/DeliveryMap.jsx
-import React, { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -22,8 +22,7 @@ function makeIcon(emoji, color = '#1D9E75') {
   });
 }
 
-function PickupIcon()  { return makeIcon('📦', '#1D9E75'); }
-function DropoffIcon() { return makeIcon('🏁', '#E24B4A'); }
+
 function TruckIcon()   {
   return L.divIcon({
     html: `<div style="background:#185FA5;width:38px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,0.2)">🚛</div>`,

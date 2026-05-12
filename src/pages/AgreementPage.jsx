@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Card, Btn, CheckRow, Alert } from '../components/common/UI';
+import { useRef, useState } from 'react';
+import { Card, Btn, CheckRow } from '../components/common/UI';
 import { saveAgreement } from '../firebase/db';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
