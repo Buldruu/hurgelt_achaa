@@ -31,12 +31,12 @@ jobs:
 
       - name: Build
         env:
-          VITE_FIREBASE_API_KEY: "AIzaSyBxJftXyMZqWoOdbuFxFx2R-5FHdNHrAVE"
-          VITE_FIREBASE_AUTH_DOMAIN: "hurgelt-15371.firebaseapp.com"
-          VITE_FIREBASE_PROJECT_ID: "hurgelt-15371"
-          VITE_FIREBASE_STORAGE_BUCKET: "hurgelt-15371.firebasestorage.app"
-          VITE_FIREBASE_MESSAGING_SENDER_ID: "368823660689"
-          VITE_FIREBASE_APP_ID: "1:368823660689:web:2723d651ba10c7d1f7cf30"
+          VITE_FIREBASE_API_KEY:            ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN:        ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID:         ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET:     ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID:             ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: npm run build
 
       - name: Upload artifact

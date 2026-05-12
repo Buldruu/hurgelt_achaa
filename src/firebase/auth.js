@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './config';
 
 // ─── PHONE AUTH ───────────────────────────────────────────────────────────────
@@ -51,11 +51,19 @@ export async function upsertUserProfile(uid, data) {
   const ref  = doc(db, 'users', uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
+    // Шинэ хэрэглэгч — бүх мэдээллийг хадгална
     await setDoc(ref, {
       ...data,
       createdAt: serverTimestamp(),
       role: data.role || 'customer',
     });
+  } else {
+    // Байгаа хэрэглэгч — role болон createdAt-г хэзээ ч дарахгүй
+    // eslint-disable-next-line no-unused-vars
+    const { role: _r, createdAt: _c, ...safeData } = data;
+    if (Object.keys(safeData).length > 0) {
+      await updateDoc(ref, safeData);
+    }
   }
   return (await getDoc(ref)).data();
 }

@@ -12,17 +12,19 @@ export default function LoginPage() {
   const { setUser, setUserProfile } = useStore();
 
   const [authTab, setAuthTab]     = useState('email');
-  const [emailMode, setEmailMode] = useState('login');
+  // 'login' | 'register' | 'reset'
+  const [mode, setMode]           = useState('login');
+  // register дээр сонгосон role
   const [role, setRole]           = useState('customer');
   const [loading, setLoading]     = useState(false);
 
-  // Phone OTP state
+  // Phone OTP
   const [phone, setPhone]     = useState('');
   const [otpStep, setOtpStep] = useState(false);
   const [code, setCode]       = useState(['','','','','','']);
   const refs = useRef([]);
 
-  // Registration fields (shared between email+phone)
+  // Бүртгэлийн талбарууд
   const [lastName, setLastName]   = useState('');
   const [firstName, setFirstName] = useState('');
   const [regPhone, setRegPhone]   = useState('');
@@ -30,14 +32,22 @@ export default function LoginPage() {
   const [password, setPassword]   = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
-  // ── PHONE OTP ────────────────────────────────────────────────────────────────
+  // Нэвтрэх үед role selector харагдах эсэх
+  const isRegister = mode === 'register';
+  const accentColor = isRegister
+    ? (role === 'driver' ? '#185FA5' : '#1D9E75')
+    : '#1D9E75';
+
+  // ── PHONE OTP ──────────────────────────────────────────────────────────────
 
   async function handleSendOTP() {
-    if (!lastName.trim() || !firstName.trim()) { toast.error('Овог нэрээ оруулна уу'); return; }
     if (phone.length < 8) { toast.error('Утасны дугаараа оруулна уу'); return; }
+    if (isRegister && (!lastName.trim() || !firstName.trim())) {
+      toast.error('Овог нэрээ оруулна уу'); return;
+    }
     setLoading(true);
     try {
-      const fmt = phone.startsWith('+') ? phone : '+976' + phone.replace(/\s/g,'');
+      const fmt = phone.startsWith('+') ? phone : '+976' + phone.replace(/\s/g, '');
       await sendOTP(fmt);
       setOtpStep(true);
       toast.success('OTP код илгээлээ 📱');
@@ -48,7 +58,7 @@ export default function LoginPage() {
   function handleDigit(i, val) {
     if (!/^\d?$/.test(val)) return;
     const next = [...code]; next[i] = val; setCode(next);
-    if (val && i < 5) refs.current[i+1]?.focus();
+    if (val && i < 5) refs.current[i + 1]?.focus();
   }
 
   async function handleVerifyOTP() {
@@ -57,9 +67,15 @@ export default function LoginPage() {
     try {
       const u = await verifyOTP(code.join(''));
       const fullName = lastName.trim() + ' ' + firstName.trim();
+      // Шинэ хэрэглэгч бол role тавина, байгаа бол хэвээр үлдэнэ
       const p = await upsertUserProfile(u.uid, {
-        phone: u.phoneNumber, role,
-        name: fullName, lastName: lastName.trim(), firstName: firstName.trim(),
+        phone: u.phoneNumber,
+        ...(isRegister && {
+          role,
+          name: fullName,
+          lastName: lastName.trim(),
+          firstName: firstName.trim(),
+        }),
       });
       setUser(u);
       setUserProfile({ ...p, uid: u.uid });
@@ -68,14 +84,15 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  // ── EMAIL ────────────────────────────────────────────────────────────────────
+  // ── EMAIL ──────────────────────────────────────────────────────────────────
 
   async function handleEmailLogin() {
     if (!email || !password) { toast.error('Имэйл болон нууц үгээ оруулна уу'); return; }
     setLoading(true);
     try {
       const u = await loginWithEmail(email, password);
-      const p = await upsertUserProfile(u.uid, { email: u.email, role, name: '' });
+      // Login: role дамжуулахгүй — Firestore-д байгаа role-г уншина
+      const p = await upsertUserProfile(u.uid, { email: u.email });
       setUser(u);
       setUserProfile({ ...p, uid: u.uid });
       toast.success('Амжилттай нэвтэрлээ! 🎉');
@@ -90,19 +107,22 @@ export default function LoginPage() {
   }
 
   async function handleEmailRegister() {
-    if (!lastName.trim())    { toast.error('Овгоо оруулна уу'); return; }
-    if (!firstName.trim())   { toast.error('Нэрээ оруулна уу'); return; }
-    if (!regPhone.trim())    { toast.error('Утасны дугаараа оруулна уу'); return; }
-    if (!email)              { toast.error('Имэйл оруулна уу'); return; }
-    if (password.length < 6) { toast.error('Нууц үг хамгийн багадаа 6 тэмдэгт байна'); return; }
+    if (!lastName.trim())       { toast.error('Овгоо оруулна уу'); return; }
+    if (!firstName.trim())      { toast.error('Нэрээ оруулна уу'); return; }
+    if (!regPhone.trim())       { toast.error('Утасны дугаараа оруулна уу'); return; }
+    if (!email)                 { toast.error('Имэйл оруулна уу'); return; }
+    if (password.length < 6)    { toast.error('Нууц үг хамгийн багадаа 6 тэмдэгт байна'); return; }
     if (password !== confirmPw) { toast.error('Нууц үг таарахгүй байна'); return; }
     setLoading(true);
     try {
       const u = await registerWithEmail(email, password);
       const fullName = lastName.trim() + ' ' + firstName.trim();
       const p = await upsertUserProfile(u.uid, {
-        email: u.email, role,
-        name: fullName, lastName: lastName.trim(), firstName: firstName.trim(),
+        email: u.email,
+        role,
+        name: fullName,
+        lastName: lastName.trim(),
+        firstName: firstName.trim(),
         phone: regPhone.trim(),
       });
       setUser(u);
@@ -124,39 +144,45 @@ export default function LoginPage() {
     try {
       await resetPassword(email);
       toast.success('Нууц үг сэргээх линк имэйлрүү илгээлээ 📧');
-      setEmailMode('login');
+      setMode('login');
     } catch { toast.error('Имэйл хаяг олдсонгүй'); }
     setLoading(false);
   }
 
-  // ── STYLES ───────────────────────────────────────────────────────────────────
-
-  const roleColor = role === 'driver' ? '#185FA5' : '#1D9E75';
-
-  const tabBtn = (active) => ({
-    flex: 1, padding: '10px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-    border: 'none', background: active ? '#fff' : 'transparent',
-    color: active ? roleColor : '#9CA3AF', cursor: 'pointer', fontFamily: 'inherit',
-    boxShadow: active ? '0 2px 8px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s',
-  });
+  // ── HELPERS ────────────────────────────────────────────────────────────────
 
   const linkBtn = (onClick, label) => (
     <button onClick={onClick} style={{
       background: 'none', border: 'none', cursor: 'pointer',
-      color: roleColor, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', padding: 0,
+      color: accentColor, fontSize: 13, fontWeight: 600,
+      fontFamily: 'inherit', padding: 0,
     }}>{label}</button>
   );
+
+  const tabStyle = (active) => ({
+    flex: 1, padding: '10px 0', background: 'none', border: 'none',
+    borderBottom: active ? '2px solid ' + accentColor : '2px solid transparent',
+    marginBottom: -2, fontWeight: 700, fontSize: 14,
+    color: active ? accentColor : '#9CA3AF',
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+  });
+
+  const bgColor = isRegister && role === 'driver'
+    ? 'linear-gradient(160deg, #185FA5 0%, #0A3060 100%)'
+    : 'linear-gradient(160deg, #1D9E75 0%, #0A4D3E 100%)';
+
+  // ── RENDER ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: role === 'driver'
-        ? 'linear-gradient(160deg, #185FA5 0%, #0A3060 100%)'
-        : 'linear-gradient(160deg, #1D9E75 0%, #0A4D3E 100%)',
+      background: bgColor,
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: 20,
-      transition: 'background 0.4s',
+      alignItems: 'center', justifyContent: 'center',
+      padding: 20, transition: 'background 0.4s',
     }}>
+
+      {/* Logo */}
       <div style={{ marginBottom: 28, textAlign: 'center' }}>
         <div style={{ fontSize: 64, marginBottom: 10, filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))' }}>🚛</div>
         <div style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', marginBottom: 4 }}>АчааЗам</div>
@@ -166,55 +192,80 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 400 }}>
         <Card style={{ borderRadius: 20, padding: '24px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
 
-          {/* Role selector */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: 4, background: '#F0F2F5', borderRadius: 12 }}>
-            {[{ key: 'customer', label: '👤 Захиалагч' }, { key: 'driver', label: '🚛 Жолооч' }].map(r => (
-              <button key={r.key} onClick={() => setRole(r.key)} style={tabBtn(role === r.key)}>{r.label}</button>
-            ))}
-          </div>
+          {/* ── Role selector: зөвхөн бүртгүүлэх үед харагдана ── */}
+          {isRegister && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>
+                Та ямар хэрэглэгч бол?
+              </div>
+              <div style={{ display: 'flex', gap: 8, padding: 4, background: '#F0F2F5', borderRadius: 12 }}>
+                {[
+                  { key: 'customer', icon: '👤', label: 'Захиалагч', sub: 'Ачаа илгээх' },
+                  { key: 'driver',   icon: '🚛', label: 'Жолооч',    sub: 'Ачаа хүргэх' },
+                ].map(r => (
+                  <button key={r.key} onClick={() => setRole(r.key)} style={{
+                    flex: 1, padding: '10px 8px', borderRadius: 10, border: 'none',
+                    background: role === r.key ? '#fff' : 'transparent',
+                    boxShadow: role === r.key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 22, marginBottom: 3 }}>{r.icon}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: role === r.key ? accentColor : '#6B7280' }}>{r.label}</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>{r.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* Auth method tabs */}
+          {/* ── Auth method tabs ── */}
           <div style={{ display: 'flex', marginBottom: 20, borderBottom: '2px solid #F0F2F5' }}>
             {[{ key: 'email', label: '📧 Имэйл' }, { key: 'phone', label: '📱 Утас' }].map(t => (
-              <button key={t.key} onClick={() => { setAuthTab(t.key); setOtpStep(false); setEmailMode('login'); }} style={{
-                flex: 1, padding: '10px 0', background: 'none', border: 'none',
-                borderBottom: authTab === t.key ? '2px solid ' + roleColor : '2px solid transparent',
-                marginBottom: -2, fontWeight: 700, fontSize: 14,
-                color: authTab === t.key ? roleColor : '#9CA3AF',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-              }}>{t.label}</button>
+              <button key={t.key}
+                onClick={() => { setAuthTab(t.key); setOtpStep(false); setMode('login'); }}
+                style={tabStyle(authTab === t.key)}
+              >{t.label}</button>
             ))}
           </div>
 
-          {/* ── EMAIL TAB ── */}
+          {/* ════ EMAIL TAB ════ */}
           {authTab === 'email' && (
             <>
-              {emailMode === 'login' && (
+              {/* ── Нэвтрэх ── */}
+              {mode === 'login' && (
                 <>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 4 }}>Нэвтрэх</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 2 }}>Нэвтрэх</div>
                   <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>Имэйл хаягаараа нэвтрэнэ үү</div>
+
                   <FormInput label="Имэйл хаяг" type="email" placeholder="example@gmail.com"
                     value={email} onChange={e => setEmail(e.target.value)} />
                   <FormInput label="Нууц үг" type="password" placeholder="••••••••"
                     value={password} onChange={e => setPassword(e.target.value)} />
+
                   <div style={{ textAlign: 'right', marginTop: -6, marginBottom: 14 }}>
-                    {linkBtn(() => setEmailMode('reset'), 'Нууц үг мартсан?')}
+                    {linkBtn(() => setMode('reset'), 'Нууц үг мартсан?')}
                   </div>
-                  <Btn onClick={handleEmailLogin} disabled={loading} style={{ background: roleColor }}>
+
+                  <Btn onClick={handleEmailLogin} disabled={loading} style={{ background: accentColor }}>
                     {loading ? '⏳ Нэвтэрч байна...' : '→ Нэвтрэх'}
                   </Btn>
+
                   <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7280' }}>
-                    Бүртгэл байхгүй юу?{' '}{linkBtn(() => setEmailMode('register'), 'Бүртгүүлэх')}
+                    Бүртгэл байхгүй юу?{' '}
+                    {linkBtn(() => setMode('register'), 'Бүртгүүлэх')}
                   </div>
                 </>
               )}
 
-              {emailMode === 'register' && (
+              {/* ── Бүртгүүлэх ── */}
+              {mode === 'register' && (
                 <>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 2 }}>Бүртгүүлэх</div>
                   <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
                     {role === 'driver' ? '🚛 Жолоочийн' : '👤 Захиалагчийн'} шинэ бүртгэл
                   </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <FormInput label="Овог" type="text" placeholder="Батбаяр"
                       value={lastName} onChange={e => setLastName(e.target.value)} />
@@ -229,53 +280,78 @@ export default function LoginPage() {
                     value={password} onChange={e => setPassword(e.target.value)} />
                   <FormInput label="Нууц үг давтах" type="password" placeholder="••••••••"
                     value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
-                  <Btn onClick={handleEmailRegister} disabled={loading} style={{ background: roleColor }}>
+
+                  <Btn onClick={handleEmailRegister} disabled={loading} style={{ background: accentColor }}>
                     {loading ? '⏳ Бүртгэж байна...' : '✅ Бүртгүүлэх'}
                   </Btn>
+
                   <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7280' }}>
-                    Бүртгэлтэй юу?{' '}{linkBtn(() => setEmailMode('login'), 'Нэвтрэх')}
+                    Бүртгэлтэй юу?{' '}
+                    {linkBtn(() => setMode('login'), 'Нэвтрэх')}
                   </div>
                 </>
               )}
 
-              {emailMode === 'reset' && (
+              {/* ── Нууц үг сэргээх ── */}
+              {mode === 'reset' && (
                 <>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 4 }}>Нууц үг сэргээх</div>
                   <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
-                    Бүртгэлтэй имэйл хаягаа оруулна уу. Нууц үг сэргээх линк илгээнэ.
+                    Бүртгэлтэй имэйл хаягаа оруулна уу.
                   </div>
+
                   <FormInput label="Имэйл хаяг" type="email" placeholder="example@gmail.com"
                     value={email} onChange={e => setEmail(e.target.value)} />
-                  <Btn onClick={handleReset} disabled={loading} style={{ background: roleColor }}>
+
+                  <Btn onClick={handleReset} disabled={loading} style={{ background: accentColor }}>
                     {loading ? '⏳ Илгээж байна...' : '📧 Линк илгээх'}
                   </Btn>
+
                   <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7280' }}>
-                    {linkBtn(() => setEmailMode('login'), '← Нэвтрэх хуудас руу буцах')}
+                    {linkBtn(() => setMode('login'), '← Буцах')}
                   </div>
                 </>
               )}
             </>
           )}
 
-          {/* ── PHONE TAB ── */}
+          {/* ════ PHONE TAB ════ */}
           {authTab === 'phone' && (
             <>
               {!otpStep ? (
                 <>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 4 }}>Утасаар нэвтрэх</div>
-                  <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>Мэдээллээ бөглөөд OTP авна уу</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <FormInput label="Овог" type="text" placeholder="Батбаяр"
-                      value={lastName} onChange={e => setLastName(e.target.value)} />
-                    <FormInput label="Нэр" type="text" placeholder="Тэмүүжин"
-                      value={firstName} onChange={e => setFirstName(e.target.value)} />
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 2 }}>
+                    {isRegister ? 'Бүртгүүлэх' : 'Утасаар нэвтрэх'}
                   </div>
+                  <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
+                    {isRegister ? 'Мэдээллээ бөглөөд OTP авна уу' : 'Утасны дугаарт OTP код илгээнэ'}
+                  </div>
+
+                  {/* Бүртгүүлэх үед нэр асуух */}
+                  {isRegister && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <FormInput label="Овог" type="text" placeholder="Батбаяр"
+                        value={lastName} onChange={e => setLastName(e.target.value)} />
+                      <FormInput label="Нэр" type="text" placeholder="Тэмүүжин"
+                        value={firstName} onChange={e => setFirstName(e.target.value)} />
+                    </div>
+                  )}
+
                   <FormInput label="Утасны дугаар" type="tel" placeholder="9911 0000"
                     value={phone} onChange={e => setPhone(e.target.value)} />
+
                   <div id="recaptcha-container" />
-                  <Btn onClick={handleSendOTP} disabled={loading} style={{ background: roleColor }}>
+
+                  <Btn onClick={handleSendOTP} disabled={loading} style={{ background: accentColor }}>
                     {loading ? '⏳ Илгээж байна...' : '📱 OTP код авах'}
                   </Btn>
+
+                  <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7280' }}>
+                    {isRegister
+                      ? <>{' '}Бүртгэлтэй юу?{' '}{linkBtn(() => setMode('login'), 'Нэвтрэх')}</>
+                      : <>Бүртгэл байхгүй юу?{' '}{linkBtn(() => setMode('register'), 'Бүртгүүлэх')}</>
+                    }
+                  </div>
                 </>
               ) : (
                 <>
@@ -283,6 +359,7 @@ export default function LoginPage() {
                   <Alert variant="blue" style={{ marginBottom: 16 }}>
                     📲 <strong>{phone}</strong> руу 6 оронтой код илгээлээ
                   </Alert>
+
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
                     {code.map((c, i) => (
                       <input key={i} ref={el => refs.current[i] = el} value={c}
@@ -292,14 +369,16 @@ export default function LoginPage() {
                           border: '2px solid #E5E7EB', borderRadius: 12,
                           fontFamily: 'inherit', outline: 'none', background: '#FAFAFA',
                         }}
-                        onFocus={e => e.target.style.borderColor = roleColor}
+                        onFocus={e => e.target.style.borderColor = accentColor}
                         onBlur={e => e.target.style.borderColor = '#E5E7EB'}
                       />
                     ))}
                   </div>
-                  <Btn onClick={handleVerifyOTP} disabled={loading} style={{ background: roleColor }}>
+
+                  <Btn onClick={handleVerifyOTP} disabled={loading} style={{ background: accentColor }}>
                     {loading ? '⏳ Баталгаажуулж байна...' : '✅ Баталгаажуулах'}
                   </Btn>
+
                   <button onClick={() => setOtpStep(false)} style={{
                     width: '100%', textAlign: 'center', marginTop: 12, fontSize: 13,
                     color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer',
