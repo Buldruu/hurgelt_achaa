@@ -59,10 +59,14 @@ export async function upsertUserProfile(uid, data) {
     });
   } else {
     // Байгаа хэрэглэгч — role болон createdAt-г хэзээ ч дарахгүй
+    // Гэхдээ role огт байхгүй бол (хуучин бүртгэл) нэг удаа тохируулна
     // eslint-disable-next-line no-unused-vars
-    const { role: _r, createdAt: _c, ...safeData } = data;
-    if (Object.keys(safeData).length > 0) {
-      await updateDoc(ref, safeData);
+    const { role: incomingRole, createdAt: _c, ...safeData } = data;
+    const existingRole = snap.data().role;
+    const updates = { ...safeData };
+    if (!existingRole && incomingRole) updates.role = incomingRole;
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(ref, updates);
     }
   }
   return (await getDoc(ref)).data();

@@ -8,7 +8,7 @@ import useStore from '../store/useStore';
 import { Card, Btn, FormInput, Alert } from '../components/common/UI';
 import toast from 'react-hot-toast';
 
-// ─── Нэг хэрэглэгчийн нэвтрэх форм ─────────────────────────────────────────
+// ─── Нэг хэрэглэгчийн нэвтрэх / бүртгэх форм ───────────────────────────────
 function AuthForm({ role, onSuccess }) {
   const [authTab, setAuthTab] = useState('email');
   const [mode, setMode]       = useState('login');
@@ -28,9 +28,9 @@ function AuthForm({ role, onSuccess }) {
   const [password, setPassword]   = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
-  const isRegister  = mode === 'register';
-  const isDriver    = role === 'driver';
-  const accent      = isDriver ? '#185FA5' : '#1D9E75';
+  const isRegister = mode === 'register';
+  const isDriver   = role === 'driver';
+  const accent     = isDriver ? '#185FA5' : '#1D9E75';
 
   // ── Phone OTP ──────────────────────────────────────────────────────────────
   async function handleSendOTP() {
@@ -68,13 +68,15 @@ function AuthForm({ role, onSuccess }) {
     setLoading(false);
   }
 
-  // ── Email ──────────────────────────────────────────────────────────────────
+  // ── Email Login ────────────────────────────────────────────────────────────
   async function handleEmailLogin() {
     if (!email || !password) { toast.error('Имэйл болон нууц үгээ оруулна уу'); return; }
     setLoading(true);
     try {
       const u = await loginWithEmail(email, password);
-      const p = await upsertUserProfile(u.uid, { email: u.email });
+      // role дамжуулна — Firestore-д role байхгүй хуучин бүртгэлд нэг удаа тохируулна
+      // Байгаа role байвал upsertUserProfile хэзээ ч дарахгүй
+      const p = await upsertUserProfile(u.uid, { email: u.email, role });
       onSuccess(u, p);
       toast.success('Амжилттай нэвтэрлээ! 🎉');
     } catch (e) {
@@ -87,6 +89,7 @@ function AuthForm({ role, onSuccess }) {
     setLoading(false);
   }
 
+  // ── Email Register ─────────────────────────────────────────────────────────
   async function handleEmailRegister() {
     if (!lastName.trim())       { toast.error('Овгоо оруулна уу'); return; }
     if (!firstName.trim())      { toast.error('Нэрээ оруулна уу'); return; }
@@ -106,11 +109,18 @@ function AuthForm({ role, onSuccess }) {
       onSuccess(u, p);
       toast.success('Бүртгэл амжилттай үүслээ! 🎉');
     } catch (e) {
-      const msg = e.code === 'auth/email-already-in-use' ? 'Энэ имэйл хаяг бүртгэлтэй байна'
-                : e.code === 'auth/weak-password'        ? 'Нууц үг хэтэрхий энгийн байна'
-                : e.code === 'auth/invalid-email'        ? 'Имэйл хаяг буруу байна'
-                : e.message;
-      toast.error(msg);
+      if (e.code === 'auth/email-already-in-use') {
+        // Бүртгэлтэй email — нэвтрэх хуудас руу шилжүүлнэ
+        toast.error('Энэ имэйл хаяг бүртгэлтэй байна. Нэвтрэх хуудас руу шилжлээ.');
+        setMode('login');
+        setPassword('');
+        setConfirmPw('');
+      } else {
+        const msg = e.code === 'auth/weak-password'  ? 'Нууц үг хэтэрхий энгийн байна'
+                  : e.code === 'auth/invalid-email'  ? 'Имэйл хаяг буруу байна'
+                  : e.message;
+        toast.error(msg);
+      }
     }
     setLoading(false);
   }
@@ -154,13 +164,16 @@ function AuthForm({ role, onSuccess }) {
         ))}
       </div>
 
-      {/* ════ EMAIL ════ */}
+      {/* ════ EMAIL TAB ════ */}
       {authTab === 'email' && (
         <>
+          {/* ── Нэвтрэх ── */}
           {mode === 'login' && (
             <>
               <div style={{ fontSize: 17, fontWeight: 800, color: '#111', marginBottom: 2 }}>Нэвтрэх</div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>Имэйл хаягаараа нэвтрэнэ үү</div>
+              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
+                {isDriver ? '🚛 Жолоочийн' : '👤 Захиалагчийн'} бүртгэлээр нэвтрэнэ үү
+              </div>
               <FormInput label="Имэйл хаяг" type="email" placeholder="example@gmail.com"
                 value={email} onChange={e => setEmail(e.target.value)} />
               <FormInput label="Нууц үг" type="password" placeholder="••••••••"
@@ -177,12 +190,23 @@ function AuthForm({ role, onSuccess }) {
             </>
           )}
 
+          {/* ── Бүртгүүлэх ── */}
           {mode === 'register' && (
             <>
               <div style={{ fontSize: 17, fontWeight: 800, color: '#111', marginBottom: 2 }}>Бүртгүүлэх</div>
               <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
-                {isDriver ? '🚛 Жолоочийн' : '👤 Захиалагчийн'} шинэ бүртгэл
+                {isDriver ? '🚛 Жолоочийн' : '👤 Захиалагчийн'} шинэ бүртгэл үүсгэнэ
               </div>
+
+              {/* Нэг email-ийг хоёр role-д ашиглах боломжгүй гэдгийг сануулна */}
+              <div style={{ background: '#FFF9E6', border: '1px solid #FCD34D', borderRadius: 10, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+                ⚠️ Нэг имэйл хаягаар зөвхөн <strong>нэг бүртгэл</strong> үүсгэх боломжтой.
+                {isDriver
+                  ? ' Захиалагчийн бүртгэлтэй имэйлээр жолоочид бүртгүүлэх боломжгүй.'
+                  : ' Жолоочийн бүртгэлтэй имэйлээр захиалагчид бүртгүүлэх боломжгүй.'
+                }
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <FormInput label="Овог" placeholder="Батбаяр" value={lastName} onChange={e => setLastName(e.target.value)} />
                 <FormInput label="Нэр" placeholder="Тэмүүжин" value={firstName} onChange={e => setFirstName(e.target.value)} />
@@ -204,6 +228,7 @@ function AuthForm({ role, onSuccess }) {
             </>
           )}
 
+          {/* ── Нууц үг сэргээх ── */}
           {mode === 'reset' && (
             <>
               <div style={{ fontSize: 17, fontWeight: 800, color: '#111', marginBottom: 4 }}>Нууц үг сэргээх</div>
@@ -223,7 +248,7 @@ function AuthForm({ role, onSuccess }) {
         </>
       )}
 
-      {/* ════ PHONE ════ */}
+      {/* ════ PHONE TAB ════ */}
       {authTab === 'phone' && (
         <>
           {!otpStep ? (
@@ -234,12 +259,19 @@ function AuthForm({ role, onSuccess }) {
               <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
                 {isRegister ? 'Мэдээллээ бөглөөд OTP авна уу' : 'Утасны дугаарт OTP код илгээнэ'}
               </div>
+
               {isRegister && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <FormInput label="Овог" placeholder="Батбаяр" value={lastName} onChange={e => setLastName(e.target.value)} />
-                  <FormInput label="Нэр" placeholder="Тэмүүжин" value={firstName} onChange={e => setFirstName(e.target.value)} />
-                </div>
+                <>
+                  <div style={{ background: '#FFF9E6', border: '1px solid #FCD34D', borderRadius: 10, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+                    ⚠️ Нэг утасны дугаараар зөвхөн <strong>нэг бүртгэл</strong> үүсгэх боломжтой.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <FormInput label="Овог" placeholder="Батбаяр" value={lastName} onChange={e => setLastName(e.target.value)} />
+                    <FormInput label="Нэр" placeholder="Тэмүүжин" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                  </div>
+                </>
               )}
+
               <FormInput label="Утасны дугаар" type="tel" placeholder="9911 0000"
                 value={phone} onChange={e => setPhone(e.target.value)} />
               <div id="recaptcha-container" />
@@ -248,7 +280,7 @@ function AuthForm({ role, onSuccess }) {
               </Btn>
               <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7280' }}>
                 {isRegister
-                  ? <>{link(() => setMode('login'), 'Нэвтрэх')}</>
+                  ? <>{link(() => setMode('login'), '← Нэвтрэх')}</>
                   : <>Бүртгэл байхгүй юу?{' '}{link(() => setMode('register'), 'Бүртгүүлэх')}</>
                 }
               </div>
@@ -288,10 +320,9 @@ function AuthForm({ role, onSuccess }) {
   );
 }
 
-// ─── Үндсэн LoginPage: хоёр таб ─────────────────────────────────────────────
+// ─── Үндсэн LoginPage ────────────────────────────────────────────────────────
 export default function LoginPage() {
   const { setUser, setUserProfile } = useStore();
-  // 'customer' | 'driver'
   const [activeRole, setActiveRole] = useState('customer');
 
   function onSuccess(firebaseUser, profile) {
@@ -306,8 +337,7 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: bg,
+      minHeight: '100vh', background: bg,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: 20, transition: 'background 0.4s',
@@ -320,14 +350,14 @@ export default function LoginPage() {
       </div>
 
       <div style={{ width: '100%', maxWidth: 420 }}>
-
-        {/* ── Хэрэглэгчийн төрөл сонгох — том хоёр товч ── */}
+        {/* Хэрэглэгчийн төрөл */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           {[
             { key: 'customer', icon: '👤', label: 'Захиалагч', sub: 'Ачаа илгээх' },
             { key: 'driver',   icon: '🚛', label: 'Жолооч',    sub: 'Ачаа хүргэх' },
           ].map(r => {
             const active = activeRole === r.key;
+            const activeColor = r.key === 'driver' ? '#185FA5' : '#1D9E75';
             return (
               <button key={r.key} onClick={() => setActiveRole(r.key)} style={{
                 flex: 1, padding: '14px 10px', borderRadius: 16, cursor: 'pointer',
@@ -337,19 +367,10 @@ export default function LoginPage() {
                 transition: 'all 0.2s',
               }}>
                 <div style={{ fontSize: 28, marginBottom: 4 }}>{r.icon}</div>
-                <div style={{
-                  fontSize: 14, fontWeight: 800,
-                  color: active
-                    ? (r.key === 'driver' ? '#185FA5' : '#1D9E75')
-                    : 'rgba(255,255,255,0.9)',
-                }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: active ? activeColor : 'rgba(255,255,255,0.9)' }}>
                   {r.label}
                 </div>
-                <div style={{
-                  fontSize: 11,
-                  color: active ? '#9CA3AF' : 'rgba(255,255,255,0.6)',
-                  marginTop: 2,
-                }}>
+                <div style={{ fontSize: 11, color: active ? '#9CA3AF' : 'rgba(255,255,255,0.6)', marginTop: 2 }}>
                   {r.sub}
                 </div>
               </button>
@@ -357,7 +378,7 @@ export default function LoginPage() {
           })}
         </div>
 
-        {/* ── Форм — key prop-ийг өгснөөр role солиход бүрэн reset болно ── */}
+        {/* key prop: role солиход форм бүрэн reset болно */}
         <AuthForm key={activeRole} role={activeRole} onSuccess={onSuccess} />
       </div>
     </div>
